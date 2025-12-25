@@ -11,10 +11,26 @@ import ParentManagement from './pages/Admin/ParentManagement';
 import TeacherDashboard from './pages/Teacher/Dashboard';
 import MySubjects from './pages/Teacher/MySubjects';
 import StudyMaterials from './pages/Teacher/StudyMaterials';
-import Assignments from './pages/Teacher/Assignments';
+import TeacherAssignments from './pages/Teacher/Assignments';
 import Gradebook from './pages/Teacher/Gradebook';
-import Schedule from './pages/Teacher/Schedule';
-import Messages from './pages/Teacher/Messages';
+import TeacherSchedule from './pages/Teacher/Schedule';
+import TeacherMessages from './pages/Teacher/Messages';
+import StudentDashboard from './pages/Student/Dashboard';
+import MyCourses from './pages/Student/MyCourses';
+import CourseDetails from './pages/Student/CourseDetails';
+import Library from './pages/Student/Library';
+import StudentAssignments from './pages/Student/Assignments';
+import Grades from './pages/Student/Grades';
+import AIAssistant from './pages/Student/AIAssistant';
+import StudentSchedule from './pages/Student/Schedule';
+import StudentMessages from './pages/Student/Messages';
+import ParentDashboard from './pages/Parent/Dashboard';
+import ParentGrades from './pages/Parent/Grades';
+import ParentAttendance from './pages/Parent/Attendance';
+import ParentCalendar from './pages/Parent/Calendar';
+import ParentMessages from './pages/Parent/Messages';
+import ParentDirectory from './pages/Parent/Directory';
+import ParentSettings from './pages/Parent/Settings';
 import './App.css';
 
 function App() {
@@ -39,13 +55,30 @@ function App() {
           <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
           <Route path="/teacher/subjects" element={<MySubjects />} />
           <Route path="/teacher/materials" element={<StudyMaterials />} />
-          <Route path="/teacher/assignments" element={<Assignments />} />
+          <Route path="/teacher/assignments" element={<TeacherAssignments />} />
           <Route path="/teacher/gradebook" element={<Gradebook />} />
-          <Route path="/teacher/schedule" element={<Schedule />} />
-          <Route path="/teacher/messages" element={<Messages />} />
+          <Route path="/teacher/schedule" element={<TeacherSchedule />} />
+          <Route path="/teacher/messages" element={<TeacherMessages />} />
           
-          {/* Student Routes will be added here */}
-          {/* Parent Routes will be added here */}
+          {/* Student Routes */}
+          <Route path="/student/dashboard" element={<StudentDashboard />} />
+          <Route path="/student/courses" element={<MyCourses />} />
+          <Route path="/student/course/:code" element={<CourseDetails />} />
+          <Route path="/student/library" element={<Library />} />
+          <Route path="/student/assignments" element={<StudentAssignments />} />
+          <Route path="/student/grades" element={<Grades />} />
+          <Route path="/student/ai-assistant" element={<AIAssistant />} />
+          <Route path="/student/schedule" element={<StudentSchedule />} />
+          <Route path="/student/messages" element={<StudentMessages />} />
+          
+          {/* Parent Routes */}
+          <Route path="/parent/dashboard" element={<ParentDashboard />} />
+          <Route path="/parent/grades" element={<ParentGrades />} />
+          <Route path="/parent/attendance" element={<ParentAttendance />} />
+          <Route path="/parent/calendar" element={<ParentCalendar />} />
+          <Route path="/parent/messages" element={<ParentMessages />} />
+          <Route path="/parent/directory" element={<ParentDirectory />} />
+          <Route path="/parent/settings" element={<ParentSettings />} />
         </Routes>
       </div>
     </Router>
