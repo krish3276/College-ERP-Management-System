@@ -9,36 +9,32 @@ const getAllStudents = async (req, res) => {
     
     let query = 'SELECT * FROM students WHERE 1=1';
     const params = [];
-    let paramIndex = 1;
 
     if (semester) {
-      query += ` AND semester = $${paramIndex}`;
+      query += ` AND semester = ?`;
       params.push(semester);
-      paramIndex++;
     }
 
     if (department) {
-      query += ` AND department = $${paramIndex}`;
+      query += ` AND branch = ?`;
       params.push(department);
-      paramIndex++;
     }
 
     if (search) {
-      query += ` AND (name ILIKE $${paramIndex} OR enrollment_no ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`;
-      params.push(`%${search}%`);
-      paramIndex++;
+      query += ` AND (full_name LIKE ? OR enrollment_number LIKE ? OR email LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     query += ' ORDER BY created_at DESC';
 
-    const result = await pool.query(query, params);
+    const [result] = await pool.query(query, params);
 
     res.json({
       success: true,
-      count: result.rows.length,
-      students: result.rows.map(student => ({
+      count: result.length,
+      students: result.map(student => ({
         ...student,
-        dob: student.dob // DOB is the password for login
+        date_of_birth: student.date_of_birth // DOB is the password for login
       }))
     });
   } catch (error) {
@@ -67,12 +63,12 @@ const addStudent = async (req, res) => {
     } = req.body;
 
     // Check if email already exists
-    const emailCheck = await pool.query(
-      'SELECT * FROM students WHERE email = $1',
+    const [emailCheck] = await pool.query(
+      'SELECT * FROM students WHERE email = ?',
       [email]
     );
 
-    if (emailCheck.rows.length > 0) {
+    if (emailCheck.length > 0) {
       return res.status(400).json({
         success: false,
         message: 'Email already registered'
@@ -83,20 +79,23 @@ const addStudent = async (req, res) => {
     const enrollment_no = await generateEnrollmentNumber(pool);
 
     // Insert student
-    const result = await pool.query(
+    const [result] = await pool.query(
       `INSERT INTO students 
-       (enrollment_no, name, email, phone, dob, gender, address, semester, department, guardian_name, guardian_phone, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
-       RETURNING *`,
-      [enrollment_no, name, email, phone, dob, gender, address, semester, department, guardian_name, guardian_phone, 'active']
+       (enrollment_number, full_name, email, phone, date_of_birth, address, semester, branch, parent_phone, is_active, password_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+      [enrollment_no, name, email, phone, dob, address, semester, department, guardian_phone, dob.replace(/-/g, '')]
     );
 
-    const newStudent = result.rows[0];
+    // Get the newly created student
+    const [newStudent] = await pool.query(
+      'SELECT * FROM students WHERE id = ?',
+      [result.insertId]
+    );
 
     res.status(201).json({
       success: true,
       message: 'Student added successfully',
-      student: newStudent,
+      student: newStudent[0],
       credentials: {
         enrollment_no: enrollment_no,
         password: dob, // DOB is used as password (format: YYYY-MM-DD)
@@ -130,26 +129,31 @@ const updateStudent = async (req, res) => {
       status
     } = req.body;
 
-    const result = await pool.query(
+    const [result] = await pool.query(
       `UPDATE students 
-       SET name = $1, email = $2, phone = $3, dob = $4, gender = $5, address = $6,
-           semester = $7, department = $8, guardian_name = $9, guardian_phone = $10, status = $11
-       WHERE student_id = $12
-       RETURNING *`,
-      [name, email, phone, dob, gender, address, semester, department, guardian_name, guardian_phone, status, id]
+       SET full_name = ?, email = ?, phone = ?, date_of_birth = ?, address = ?,
+           semester = ?, branch = ?, parent_phone = ?, is_active = ?
+       WHERE id = ?`,
+      [name, email, phone, dob, address, semester, department, guardian_phone, status === 'active' ? 1 : 0, id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
         message: 'Student not found'
       });
     }
 
+    // Get updated student
+    const [updatedStudent] = await pool.query(
+      'SELECT * FROM students WHERE id = ?',
+      [id]
+    );
+
     res.json({
       success: true,
       message: 'Student updated successfully',
-      student: result.rows[0]
+      student: updatedStudent[0]
     });
   } catch (error) {
     console.error('Update student error:', error);
@@ -165,12 +169,12 @@ const deleteStudent = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      'DELETE FROM students WHERE student_id = $1 RETURNING *',
+    const [result] = await pool.query(
+      'DELETE FROM students WHERE id = ?',
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
         message: 'Student not found'
@@ -195,12 +199,12 @@ const getStudentById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      'SELECT * FROM students WHERE student_id = $1',
+    const [result] = await pool.query(
+      'SELECT * FROM students WHERE id = ?',
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Student not found'
@@ -209,7 +213,7 @@ const getStudentById = async (req, res) => {
 
     res.json({
       success: true,
-      student: result.rows[0]
+      student: result[0]
     });
   } catch (error) {
     console.error('Get student error:', error);
@@ -223,24 +227,24 @@ const getStudentById = async (req, res) => {
 // Get dashboard stats
 const getDashboardStats = async (req, res) => {
   try {
-    const totalStudentsResult = await pool.query('SELECT COUNT(*) FROM students');
-    const totalTeachersResult = await pool.query('SELECT COUNT(*) FROM teachers');
-    const totalSubjectsResult = await pool.query('SELECT COUNT(*) FROM subjects');
-    const totalParentsResult = await pool.query('SELECT COUNT(*) FROM parents');
+    const [[totalStudentsResult]] = await pool.query('SELECT COUNT(*) as count FROM students');
+    const [[totalTeachersResult]] = await pool.query('SELECT COUNT(*) as count FROM teachers');
+    const [[totalSubjectsResult]] = await pool.query('SELECT COUNT(*) as count FROM subjects');
+    const [[totalParentsResult]] = await pool.query('SELECT COUNT(*) as count FROM parents');
 
-    const recentStudentsResult = await pool.query(
+    const [recentStudentsResult] = await pool.query(
       'SELECT * FROM students ORDER BY created_at DESC LIMIT 5'
     );
 
     res.json({
       success: true,
       stats: {
-        totalStudents: parseInt(totalStudentsResult.rows[0].count),
-        totalTeachers: parseInt(totalTeachersResult.rows[0].count),
-        totalSubjects: parseInt(totalSubjectsResult.rows[0].count),
-        totalParents: parseInt(totalParentsResult.rows[0].count)
+        totalStudents: parseInt(totalStudentsResult.count),
+        totalTeachers: parseInt(totalTeachersResult.count),
+        totalSubjects: parseInt(totalSubjectsResult.count),
+        totalParents: parseInt(totalParentsResult.count)
       },
-      recentStudents: recentStudentsResult.rows
+      recentStudents: recentStudentsResult
     });
   } catch (error) {
     console.error('Dashboard stats error:', error);

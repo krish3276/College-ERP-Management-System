@@ -28,22 +28,22 @@ const adminLogin = async (req, res) => {
     }
 
     // Check if admin exists
-    const result = await pool.query(
-      'SELECT * FROM admins WHERE email = $1',
+    const [result] = await pool.query(
+      'SELECT * FROM admins WHERE email = ?',
       [email]
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
     }
 
-    const admin = result.rows[0];
+    const admin = result[0];
 
     // Check password
-    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    const isPasswordValid = await bcrypt.compare(password, admin.password_hash);
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -53,7 +53,7 @@ const adminLogin = async (req, res) => {
 
     // Generate token
     const token = generateToken({
-      id: admin.admin_id,
+      id: admin.id,
       email: admin.email,
       role: 'admin'
     });
@@ -63,8 +63,8 @@ const adminLogin = async (req, res) => {
       message: 'Login successful',
       token,
       user: {
-        id: admin.admin_id,
-        name: admin.name,
+        id: admin.id,
+        name: admin.full_name,
         email: admin.email,
         role: 'admin'
       }
@@ -90,21 +90,21 @@ const teacherLogin = async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      'SELECT * FROM teachers WHERE email = $1',
+    const [result] = await pool.query(
+      'SELECT * FROM teachers WHERE email = ?',
       [email]
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
     }
 
-    const teacher = result.rows[0];
+    const teacher = result[0];
 
-    const isPasswordValid = await bcrypt.compare(password, teacher.password);
+    const isPasswordValid = await bcrypt.compare(password, teacher.password_hash);
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -113,7 +113,7 @@ const teacherLogin = async (req, res) => {
     }
 
     const token = generateToken({
-      id: teacher.teacher_id,
+      id: teacher.id,
       email: teacher.email,
       role: 'teacher'
     });
@@ -123,8 +123,8 @@ const teacherLogin = async (req, res) => {
       message: 'Login successful',
       token,
       user: {
-        id: teacher.teacher_id,
-        name: teacher.name,
+        id: teacher.id,
+        name: teacher.full_name,
         email: teacher.email,
         department: teacher.department,
         role: 'teacher'
@@ -151,22 +151,34 @@ const studentLogin = async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      'SELECT * FROM students WHERE enrollment_no = $1',
+    const [result] = await pool.query(
+      'SELECT * FROM students WHERE enrollment_number = ?',
       [enrollment_no]
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
     }
 
-    const student = result.rows[0];
+    const student = result[0];
 
     // Compare DOB (format: YYYY-MM-DD)
-    const studentDOB = new Date(student.dob).toISOString().split('T')[0];
+    // MySQL DATE field comparison - format the date from DB
+    let studentDOB;
+    if (student.date_of_birth instanceof Date) {
+      // Get local date parts to avoid timezone issues
+      const year = student.date_of_birth.getFullYear();
+      const month = String(student.date_of_birth.getMonth() + 1).padStart(2, '0');
+      const day = String(student.date_of_birth.getDate()).padStart(2, '0');
+      studentDOB = `${year}-${month}-${day}`;
+    } else {
+      // If it's already a string, use it directly
+      studentDOB = student.date_of_birth.toString().split('T')[0];
+    }
+    
     if (studentDOB !== dob) {
       return res.status(401).json({
         success: false,
@@ -175,7 +187,7 @@ const studentLogin = async (req, res) => {
     }
 
     const token = generateToken({
-      id: student.student_id,
+      id: student.id,
       email: student.email,
       role: 'student'
     });
@@ -185,12 +197,12 @@ const studentLogin = async (req, res) => {
       message: 'Login successful',
       token,
       user: {
-        id: student.student_id,
-        enrollment_no: student.enrollment_no,
-        name: student.name,
+        id: student.id,
+        enrollment_no: student.enrollment_number,
+        name: student.full_name,
         email: student.email,
         semester: student.semester,
-        department: student.department,
+        department: student.branch,
         role: 'student'
       }
     });
@@ -215,21 +227,21 @@ const parentLogin = async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      'SELECT * FROM parents WHERE email = $1',
+    const [result] = await pool.query(
+      'SELECT * FROM parents WHERE email = ?',
       [email]
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
     }
 
-    const parent = result.rows[0];
+    const parent = result[0];
 
-    const isPasswordValid = await bcrypt.compare(password, parent.password);
+    const isPasswordValid = await bcrypt.compare(password, parent.password_hash);
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -238,16 +250,15 @@ const parentLogin = async (req, res) => {
     }
 
     // Get linked children
-    const childrenResult = await pool.query(
-      `SELECT s.student_id, s.enrollment_no, s.name, s.semester, s.department
-       FROM students s
-       INNER JOIN parent_student_links psl ON s.student_id = psl.student_id
-       WHERE psl.parent_id = $1`,
-      [parent.parent_id]
+    const [childrenResult] = await pool.query(
+      `SELECT id, enrollment_number, full_name, semester, branch
+       FROM students
+       WHERE id = ?`,
+      [parent.student_id]
     );
 
     const token = generateToken({
-      id: parent.parent_id,
+      id: parent.id,
       email: parent.email,
       role: 'parent'
     });
@@ -257,12 +268,12 @@ const parentLogin = async (req, res) => {
       message: 'Login successful',
       token,
       user: {
-        id: parent.parent_id,
-        name: parent.name,
+        id: parent.id,
+        name: parent.full_name,
         email: parent.email,
-        relationship: parent.relationship,
+        relationship: parent.relation,
         role: 'parent',
-        children: childrenResult.rows
+        children: childrenResult
       }
     });
   } catch (error) {

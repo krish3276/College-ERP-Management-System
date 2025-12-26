@@ -16,12 +16,11 @@ app.use(express.urlencoded({ extended: true }));
 // Static files for uploads
 app.use('/uploads', express.static('uploads'));
 
-// Routes will be added here
-// app.use('/api/auth', require('./routes/authRoutes'));
-// app.use('/api/admin', require('./routes/adminRoutes'));
-// app.use('/api/teacher', require('./routes/teacherRoutes'));
-// app.use('/api/student', require('./routes/studentRoutes'));
-// app.use('/api/parent', require('./routes/parentRoutes'));
+// Routes
+app.use('/api/auth', require('../routes/auth'));
+app.use('/api/admin', require('../routes/admin'));
+app.use('/api/student', require('../routes/student'));
+app.use('/api/parent', require('../routes/parent'));
 
 // Health check
 app.get('/health', (req, res) => {

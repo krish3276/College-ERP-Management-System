@@ -7,30 +7,27 @@ const getAllTeachers = async (req, res) => {
   try {
     const { department, search } = req.query;
     
-    let query = 'SELECT teacher_id, name, email, phone, department, qualification, experience, status FROM teachers WHERE 1=1';
+    let query = 'SELECT id, teacher_id, full_name, email, phone, department, qualification, is_active FROM teachers WHERE 1=1';
     const params = [];
-    let paramIndex = 1;
 
     if (department) {
-      query += ` AND department = $${paramIndex}`;
+      query += ` AND department = ?`;
       params.push(department);
-      paramIndex++;
     }
 
     if (search) {
-      query += ` AND (name ILIKE $${paramIndex} OR email ILIKE $${paramIndex} OR teacher_id ILIKE $${paramIndex})`;
-      params.push(`%${search}%`);
-      paramIndex++;
+      query += ` AND (full_name LIKE ? OR email LIKE ? OR teacher_id LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     query += ' ORDER BY created_at DESC';
 
-    const result = await pool.query(query, params);
+    const [result] = await pool.query(query, params);
 
     res.json({
       success: true,
-      count: result.rows.length,
-      teachers: result.rows
+      count: result.length,
+      teachers: result
     });
   } catch (error) {
     console.error('Get teachers error:', error);
@@ -55,12 +52,12 @@ const addTeacher = async (req, res) => {
     } = req.body;
 
     // Check if email already exists
-    const emailCheck = await pool.query(
-      'SELECT * FROM teachers WHERE email = $1',
+    const [emailCheck] = await pool.query(
+      'SELECT * FROM teachers WHERE email = ?',
       [email]
     );
 
-    if (emailCheck.rows.length > 0) {
+    if (emailCheck.length > 0) {
       return res.status(400).json({
         success: false,
         message: 'Email already registered'
@@ -72,18 +69,23 @@ const addTeacher = async (req, res) => {
     const generatedPassword = generateRandomPassword();
     const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
-    const result = await pool.query(
+    const [result] = await pool.query(
       `INSERT INTO teachers 
-       (teacher_id, name, email, password, phone, department, qualification, experience, address, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
-       RETURNING teacher_id, name, email, phone, department, qualification, experience, status`,
-      [teacher_id, name, email, hashedPassword, phone, department, qualification, experience, address, 'active']
+       (teacher_id, full_name, email, password_hash, phone, department, qualification, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+      [teacher_id, name, email, hashedPassword, phone, department, qualification]
+    );
+
+    // Get the newly created teacher
+    const [newTeacher] = await pool.query(
+      'SELECT id, teacher_id, full_name, email, phone, department, qualification, is_active FROM teachers WHERE id = ?',
+      [result.insertId]
     );
 
     res.status(201).json({
       success: true,
       message: 'Teacher added successfully',
-      teacher: result.rows[0],
+      teacher: newTeacher[0],
       credentials: {
         teacher_id: teacher_id,
         email: email,
@@ -115,25 +117,30 @@ const updateTeacher = async (req, res) => {
       status
     } = req.body;
 
-    const result = await pool.query(
+    const [result] = await pool.query(
       `UPDATE teachers 
-       SET name = $1, email = $2, phone = $3, department = $4, qualification = $5, experience = $6, address = $7, status = $8
-       WHERE teacher_id = $9
-       RETURNING teacher_id, name, email, phone, department, qualification, experience, status`,
-      [name, email, phone, department, qualification, experience, address, status, id]
+       SET full_name = ?, email = ?, phone = ?, department = ?, qualification = ?, is_active = ?
+       WHERE teacher_id = ?`,
+      [name, email, phone, department, qualification, status === 'active' ? 1 : 0, id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
         message: 'Teacher not found'
       });
     }
 
+    // Get updated teacher
+    const [updatedTeacher] = await pool.query(
+      'SELECT id, teacher_id, full_name, email, phone, department, qualification, is_active FROM teachers WHERE teacher_id = ?',
+      [id]
+    );
+
     res.json({
       success: true,
       message: 'Teacher updated successfully',
-      teacher: result.rows[0]
+      teacher: updatedTeacher[0]
     });
   } catch (error) {
     console.error('Update teacher error:', error);
@@ -149,12 +156,12 @@ const deleteTeacher = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      'DELETE FROM teachers WHERE teacher_id = $1 RETURNING *',
+    const [result] = await pool.query(
+      'DELETE FROM teachers WHERE teacher_id = ?',
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
         message: 'Teacher not found'
@@ -177,37 +184,28 @@ const deleteTeacher = async (req, res) => {
 // Get all subjects
 const getAllSubjects = async (req, res) => {
   try {
-    const { semester, department } = req.query;
+    const { semester } = req.query;
     
     let query = `
-      SELECT s.*, t.name as teacher_name 
+      SELECT s.* 
       FROM subjects s
-      LEFT JOIN teachers t ON s.teacher_id = t.teacher_id
       WHERE 1=1
     `;
     const params = [];
-    let paramIndex = 1;
 
     if (semester) {
-      query += ` AND s.semester = $${paramIndex}`;
+      query += ` AND s.semester_id = ?`;
       params.push(semester);
-      paramIndex++;
     }
 
-    if (department) {
-      query += ` AND s.department = $${paramIndex}`;
-      params.push(department);
-      paramIndex++;
-    }
+    query += ' ORDER BY s.subject_code';
 
-    query += ' ORDER BY s.semester, s.subject_code';
-
-    const result = await pool.query(query, params);
+    const [result] = await pool.query(query, params);
 
     res.json({
       success: true,
-      count: result.rows.length,
-      subjects: result.rows
+      count: result.length,
+      subjects: result
     });
   } catch (error) {
     console.error('Get subjects error:', error);
@@ -231,30 +229,35 @@ const addSubject = async (req, res) => {
     } = req.body;
 
     // Check if subject code already exists
-    const codeCheck = await pool.query(
-      'SELECT * FROM subjects WHERE subject_code = $1',
+    const [codeCheck] = await pool.query(
+      'SELECT * FROM subjects WHERE subject_code = ?',
       [subject_code]
     );
 
-    if (codeCheck.rows.length > 0) {
+    if (codeCheck.length > 0) {
       return res.status(400).json({
         success: false,
         message: 'Subject code already exists'
       });
     }
 
-    const result = await pool.query(
+    const [result] = await pool.query(
       `INSERT INTO subjects 
-       (subject_code, subject_name, semester, credits, department, teacher_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
-       RETURNING *`,
-      [subject_code, subject_name, semester, credits, department, teacher_id]
+       (subject_code, subject_name, semester_id, credits, is_active)
+       VALUES (?, ?, ?, ?, 1)`,
+      [subject_code, subject_name, semester, credits]
+    );
+
+    // Get the newly created subject
+    const [newSubject] = await pool.query(
+      'SELECT * FROM subjects WHERE id = ?',
+      [result.insertId]
     );
 
     res.status(201).json({
       success: true,
       message: 'Subject added successfully',
-      subject: result.rows[0]
+      subject: newSubject[0]
     });
   } catch (error) {
     console.error('Add subject error:', error);
@@ -278,25 +281,30 @@ const updateSubject = async (req, res) => {
       teacher_id
     } = req.body;
 
-    const result = await pool.query(
+    const [result] = await pool.query(
       `UPDATE subjects 
-       SET subject_code = $1, subject_name = $2, semester = $3, credits = $4, department = $5, teacher_id = $6
-       WHERE subject_id = $7
-       RETURNING *`,
-      [subject_code, subject_name, semester, credits, department, teacher_id, id]
+       SET subject_code = ?, subject_name = ?, semester_id = ?, credits = ?
+       WHERE id = ?`,
+      [subject_code, subject_name, semester, credits, id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
         message: 'Subject not found'
       });
     }
 
+    // Get updated subject
+    const [updatedSubject] = await pool.query(
+      'SELECT * FROM subjects WHERE id = ?',
+      [id]
+    );
+
     res.json({
       success: true,
       message: 'Subject updated successfully',
-      subject: result.rows[0]
+      subject: updatedSubject[0]
     });
   } catch (error) {
     console.error('Update subject error:', error);
@@ -312,12 +320,12 @@ const deleteSubject = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      'DELETE FROM subjects WHERE subject_id = $1 RETURNING *',
+    const [result] = await pool.query(
+      'DELETE FROM subjects WHERE id = ?',
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
         message: 'Subject not found'

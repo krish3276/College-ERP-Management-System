@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaUser, FaChalkboardTeacher, FaUserFriends, FaUserShield, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { adminLogin, teacherLogin, studentLogin, parentLogin, saveUserData } from '../services/authService';
 
 const Login = () => {
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState('student');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -29,29 +32,72 @@ const Login = () => {
       ...formData,
       [name]: type === 'checkbox' ? checked : value
     });
+    setError(''); // Clear error when user types
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: Implement login API call
-    console.log('Login attempt:', { ...formData, role: selectedRole });
-    
-    // Navigate based on role (temporary until API is connected)
-    // navigate(`/${selectedRole}/dashboard`);
+    setLoading(true);
+    setError('');
+
+    try {
+      let response;
+      
+      switch(selectedRole) {
+        case 'admin':
+          response = await adminLogin(formData.username, formData.password);
+          break;
+        case 'teacher':
+          response = await teacherLogin(formData.username, formData.password);
+          break;
+        case 'student':
+          response = await studentLogin(formData.username, formData.password);
+          break;
+        case 'parent':
+          response = await parentLogin(formData.username, formData.password);
+          break;
+        default:
+          throw new Error('Invalid role selected');
+      }
+
+      if (response.success) {
+        // Save token and user data
+        saveUserData(response.token, response.user);
+        
+        // Navigate to dashboard
+        navigate(`/${selectedRole}/dashboard`);
+      } else {
+        setError(response.message || 'Login failed');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getPlaceholder = () => {
     switch(selectedRole) {
       case 'student':
-        return 'Enter your ID e.g. 2024001';
+        return 'Enter Enrollment No. e.g. STU2024001';
       case 'teacher':
-        return 'Enter your ID e.g. T001';
+        return 'Enter your email';
       case 'admin':
-        return 'Enter your username';
+        return 'Enter your email';
       case 'parent':
         return 'Enter your username';
       default:
         return 'Enter your ID';
+    }
+  };
+
+  const getPasswordPlaceholder = () => {
+    switch(selectedRole) {
+      case 'student':
+        return 'Enter DOB (YYYY-MM-DD)';
+      default:
+        return '••••••••';
     }
   };
 
@@ -161,25 +207,27 @@ const Login = () => {
                 {/* Password Field */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password
+                    {selectedRole === 'student' ? 'Date of Birth' : 'Password'}
                   </label>
                   <div className="relative">
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type={selectedRole === 'student' ? 'date' : (showPassword ? 'text' : 'password')}
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      placeholder="••••••••"
+                      placeholder={getPasswordPlaceholder()}
                       className="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                       required
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <FaEyeSlash /> : <FaEye />}
-                    </button>
+                    {selectedRole !== 'student' && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -200,13 +248,33 @@ const Login = () => {
                   </a>
                 </div>
 
+                {/* Error Message */}
+                {error && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
+                )}
+
                 {/* Sign In Button */}
                 <button
                   type="submit"
-                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 flex items-center justify-center gap-2"
+                  disabled={loading}
+                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 flex items-center justify-center gap-2 disabled:bg-blue-400 disabled:cursor-not-allowed"
                 >
-                  Sign In
-                  <span>→</span>
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      Sign In
+                      <span>→</span>
+                    </>
+                  )}
                 </button>
 
                 {/* Contact Admin Link */}

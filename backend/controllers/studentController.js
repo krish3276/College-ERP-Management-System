@@ -6,42 +6,41 @@ const getDashboard = async (req, res) => {
     const studentId = req.user.id;
 
     // Get student info
-    const studentInfo = await pool.query(
-      'SELECT * FROM students WHERE student_id = $1',
+    const [studentInfo] = await pool.query(
+      'SELECT * FROM students WHERE id = ?',
       [studentId]
     );
 
-    if (studentInfo.rows.length === 0) {
+    if (studentInfo.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Student not found'
       });
     }
 
-    const student = studentInfo.rows[0];
+    const student = studentInfo[0];
 
     // Get enrolled subjects for current semester
-    const subjects = await pool.query(
-      `SELECT s.*, t.name as teacher_name 
+    const [subjects] = await pool.query(
+      `SELECT s.* 
        FROM subjects s
-       LEFT JOIN teachers t ON s.teacher_id = t.teacher_id
-       WHERE s.semester = $1 AND s.department = $2`,
-      [student.semester, student.department]
+       WHERE s.semester_id = ?`,
+      [student.semester]
     );
 
     // Get upcoming assignments
-    const assignments = await pool.query(
+    const [assignments] = await pool.query(
       `SELECT a.*, s.subject_name 
        FROM assignments a
-       INNER JOIN subjects s ON a.subject_id = s.subject_id
-       WHERE s.semester = $1 AND s.department = $2 AND a.due_date >= CURRENT_DATE
+       INNER JOIN subjects s ON a.subject_id = s.id
+       WHERE a.due_date >= CURDATE()
        ORDER BY a.due_date ASC
        LIMIT 5`,
-      [student.semester, student.department]
+      []
     );
 
     // Calculate GPA
-    const gradesResult = await pool.query(
+    const [[gradesResult]] = await pool.query(
       `SELECT AVG(
         CASE 
           WHEN grade = 'A+' THEN 10
@@ -54,24 +53,24 @@ const getDashboard = async (req, res) => {
         END
       ) as cgpa
       FROM marks
-      WHERE student_id = $1`,
+      WHERE student_id = ?`,
       [studentId]
     );
 
-    const cgpa = gradesResult.rows[0].cgpa || 0;
+    const cgpa = gradesResult.cgpa || 0;
 
     res.json({
       success: true,
       data: {
         student: {
-          name: student.name,
-          enrollment_no: student.enrollment_no,
+          name: student.full_name,
+          enrollment_no: student.enrollment_number,
           semester: student.semester,
-          department: student.department,
+          department: student.branch,
           cgpa: parseFloat(cgpa).toFixed(2)
         },
-        subjects: subjects.rows,
-        upcomingAssignments: assignments.rows
+        subjects: subjects,
+        upcomingAssignments: assignments
       }
     });
   } catch (error) {
@@ -88,33 +87,32 @@ const getMyCourses = async (req, res) => {
   try {
     const studentId = req.user.id;
 
-    const student = await pool.query(
-      'SELECT semester, department FROM students WHERE student_id = $1',
+    const [student] = await pool.query(
+      'SELECT semester, branch FROM students WHERE id = ?',
       [studentId]
     );
 
-    if (student.rows.length === 0) {
+    if (student.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Student not found'
       });
     }
 
-    const { semester, department } = student.rows[0];
+    const { semester, branch } = student[0];
 
-    const subjects = await pool.query(
-      `SELECT s.*, t.name as teacher_name, t.email as teacher_email
+    const [subjects] = await pool.query(
+      `SELECT s.*
        FROM subjects s
-       LEFT JOIN teachers t ON s.teacher_id = t.teacher_id
-       WHERE s.semester = $1 AND s.department = $2
+       WHERE s.semester_id = ?
        ORDER BY s.subject_code`,
-      [semester, department]
+      [semester]
     );
 
     res.json({
       success: true,
-      count: subjects.rows.length,
-      subjects: subjects.rows
+      count: subjects.length,
+      subjects: subjects
     });
   } catch (error) {
     console.error('Get courses error:', error);
@@ -130,17 +128,17 @@ const getGrades = async (req, res) => {
   try {
     const studentId = req.user.id;
 
-    const grades = await pool.query(
+    const [grades] = await pool.query(
       `SELECT m.*, s.subject_name, s.subject_code, s.credits
        FROM marks m
-       INNER JOIN subjects s ON m.subject_id = s.subject_id
-       WHERE m.student_id = $1
-       ORDER BY s.semester DESC, s.subject_code`,
+       INNER JOIN subjects s ON m.subject_id = s.id
+       WHERE m.student_id = ?
+       ORDER BY s.subject_code`,
       [studentId]
     );
 
     // Calculate CGPA
-    const cgpaResult = await pool.query(
+    const [[cgpaResult]] = await pool.query(
       `SELECT AVG(
         CASE 
           WHEN grade = 'A+' THEN 10
@@ -153,14 +151,14 @@ const getGrades = async (req, res) => {
         END
       ) as cgpa
       FROM marks
-      WHERE student_id = $1`,
+      WHERE student_id = ?`,
       [studentId]
     );
 
     res.json({
       success: true,
-      cgpa: parseFloat(cgpaResult.rows[0].cgpa || 0).toFixed(2),
-      grades: grades.rows
+      cgpa: parseFloat(cgpaResult.cgpa || 0).toFixed(2),
+      grades: grades
     });
   } catch (error) {
     console.error('Get grades error:', error);
@@ -177,45 +175,45 @@ const getAssignments = async (req, res) => {
     const studentId = req.user.id;
     const { status } = req.query; // pending, submitted, evaluated
 
-    const student = await pool.query(
-      'SELECT semester, department FROM students WHERE student_id = $1',
+    const [student] = await pool.query(
+      'SELECT semester, branch FROM students WHERE id = ?',
       [studentId]
     );
 
-    if (student.rows.length === 0) {
+    if (student.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Student not found'
       });
     }
 
-    const { semester, department } = student.rows[0];
+    const { semester, branch } = student[0];
 
     let query = `
       SELECT a.*, s.subject_name, s.subject_code,
-             sub.submission_id, sub.submitted_at, sub.marks_obtained, sub.feedback
+             sub.id as submission_id, sub.submitted_at, sub.marks_obtained, sub.feedback
       FROM assignments a
-      INNER JOIN subjects s ON a.subject_id = s.subject_id
-      LEFT JOIN submissions sub ON a.assignment_id = sub.assignment_id AND sub.student_id = $1
-      WHERE s.semester = $2 AND s.department = $3
+      INNER JOIN subjects s ON a.subject_id = s.id
+      LEFT JOIN submissions sub ON a.id = sub.assignment_id AND sub.student_id = ?
+      WHERE 1=1
     `;
 
     if (status === 'pending') {
-      query += ' AND sub.submission_id IS NULL AND a.due_date >= CURRENT_DATE';
+      query += ' AND sub.id IS NULL AND a.due_date >= CURDATE()';
     } else if (status === 'submitted') {
-      query += ' AND sub.submission_id IS NOT NULL AND sub.marks_obtained IS NULL';
+      query += ' AND sub.id IS NOT NULL AND sub.marks_obtained IS NULL';
     } else if (status === 'evaluated') {
       query += ' AND sub.marks_obtained IS NOT NULL';
     }
 
     query += ' ORDER BY a.due_date DESC';
 
-    const result = await pool.query(query, [studentId, semester, department]);
+    const [result] = await pool.query(query, [studentId]);
 
     res.json({
       success: true,
-      count: result.rows.length,
-      assignments: result.rows
+      count: result.length,
+      assignments: result
     });
   } catch (error) {
     console.error('Get assignments error:', error);
@@ -233,29 +231,34 @@ const submitAssignment = async (req, res) => {
     const { assignment_id, submission_text, file_path } = req.body;
 
     // Check if already submitted
-    const existingSubmission = await pool.query(
-      'SELECT * FROM submissions WHERE assignment_id = $1 AND student_id = $2',
+    const [existingSubmission] = await pool.query(
+      'SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ?',
       [assignment_id, studentId]
     );
 
-    if (existingSubmission.rows.length > 0) {
+    if (existingSubmission.length > 0) {
       return res.status(400).json({
         success: false,
         message: 'Assignment already submitted'
       });
     }
 
-    const result = await pool.query(
+    const [result] = await pool.query(
       `INSERT INTO submissions (assignment_id, student_id, submission_text, file_path, submitted_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       RETURNING *`,
+       VALUES (?, ?, ?, ?, NOW())`,
       [assignment_id, studentId, submission_text, file_path]
+    );
+
+    // Get the newly created submission
+    const [newSubmission] = await pool.query(
+      'SELECT * FROM submissions WHERE id = ?',
+      [result.insertId]
     );
 
     res.status(201).json({
       success: true,
       message: 'Assignment submitted successfully',
-      submission: result.rows[0]
+      submission: newSubmission[0]
     });
   } catch (error) {
     console.error('Submit assignment error:', error);
@@ -272,21 +275,21 @@ const getAttendance = async (req, res) => {
     const studentId = req.user.id;
     const { month, year } = req.query;
 
-    let query = 'SELECT * FROM attendance WHERE student_id = $1';
+    let query = 'SELECT * FROM attendance WHERE student_id = ?';
     const params = [studentId];
 
     if (month && year) {
-      query += ' AND EXTRACT(MONTH FROM date) = $2 AND EXTRACT(YEAR FROM date) = $3';
+      query += ' AND MONTH(date) = ? AND YEAR(date) = ?';
       params.push(month, year);
     }
 
     query += ' ORDER BY date DESC';
 
-    const result = await pool.query(query, params);
+    const [result] = await pool.query(query, params);
 
     // Calculate attendance percentage
-    const total = result.rows.length;
-    const present = result.rows.filter(r => r.status === 'present').length;
+    const total = result.length;
+    const present = result.filter(r => r.status === 'Present').length;
     const percentage = total > 0 ? ((present / total) * 100).toFixed(2) : 0;
 
     res.json({
@@ -294,7 +297,7 @@ const getAttendance = async (req, res) => {
       attendancePercentage: percentage,
       totalDays: total,
       presentDays: present,
-      records: result.rows
+      records: result
     });
   } catch (error) {
     console.error('Get attendance error:', error);
