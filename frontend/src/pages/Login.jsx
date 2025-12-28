@@ -45,15 +45,19 @@ const Login = () => {
       
       switch(selectedRole) {
         case 'admin':
+          // Admin expects: email, password
           response = await adminLogin(formData.username, formData.password);
           break;
         case 'teacher':
+          // Teacher expects: email, password
           response = await teacherLogin(formData.username, formData.password);
           break;
         case 'student':
+          // Student expects: enrollment_no, dob
           response = await studentLogin(formData.username, formData.password);
           break;
         case 'parent':
+          // Parent expects: email, password
           response = await parentLogin(formData.username, formData.password);
           break;
         default:
@@ -80,13 +84,13 @@ const Login = () => {
   const getPlaceholder = () => {
     switch(selectedRole) {
       case 'student':
-        return 'Enter Enrollment No. e.g. STU2024001';
+        return 'Enter Enrollment No. e.g. 2024001';
       case 'teacher':
         return 'Enter your email';
       case 'admin':
         return 'Enter your email';
       case 'parent':
-        return 'Enter your username';
+        return 'Enter your email';
       default:
         return 'Enter your ID';
     }

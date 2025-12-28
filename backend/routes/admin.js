@@ -20,6 +20,19 @@ const {
   updateSubject,
   deleteSubject
 } = require('../controllers/teacherController');
+const {
+  getAllParents,
+  addParent,
+  updateParent,
+  deleteParent
+} = require('../controllers/parentController');
+const {
+  getAllMarks,
+  addOrUpdateMarks,
+  updateMarks,
+  getAllSemesters,
+  getReports
+} = require('../controllers/marksController');
 
 // All routes require authentication and admin role
 router.use(verifyToken, isAdmin);
@@ -45,5 +58,22 @@ router.get('/subjects', getAllSubjects);
 router.post('/subjects', validateSubject, addSubject);
 router.put('/subjects/:id', validateSubject, updateSubject);
 router.delete('/subjects/:id', deleteSubject);
+
+// Parent management
+router.get('/parents', getAllParents);
+router.post('/parents', addParent);
+router.put('/parents/:id', updateParent);
+router.delete('/parents/:id', deleteParent);
+
+// Marks management
+router.get('/marks', getAllMarks);
+router.post('/marks', addOrUpdateMarks);
+router.put('/marks/:id', updateMarks);
+
+// Semesters
+router.get('/semesters', getAllSemesters);
+
+// Reports
+router.get('/reports/:type', getReports);
 
 module.exports = router;

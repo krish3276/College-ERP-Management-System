@@ -19,8 +19,8 @@ export const studentLogin = async (enrollment_no, dob) => {
 };
 
 // Parent Login
-export const parentLogin = async (username, password) => {
-  const response = await api.post('/auth/parent/login', { username, password });
+export const parentLogin = async (email, password) => {
+  const response = await api.post('/auth/parent/login', { email, password });
   return response.data;
 };
 

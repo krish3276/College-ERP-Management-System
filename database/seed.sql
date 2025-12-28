@@ -6,7 +6,7 @@ USE college_erp;
 -- Insert default admin
 -- Password: admin123 (hashed with bcrypt)
 INSERT INTO admins (username, email, password_hash, full_name, phone, is_active) VALUES
-('admin', 'admin@college.edu', '$2a$10$CwTycUXWue0Thq9StjUM0uJ8C8I8.YJZFtKjQQxZpFJBr8sE0YXCa', 'System Administrator', '9876543210', 1);
+('admin', 'admin@college.edu', '$2a$10$m11b1g6y51KFerepIqCceOt73hsiF4b.zX.UMIme78rFFk23a2EAe', 'System Administrator', '9876543210', 1);
 
 -- Insert semesters (1-8)
 INSERT INTO semesters (semester_number, semester_name, is_active) VALUES
@@ -22,8 +22,8 @@ INSERT INTO semesters (semester_number, semester_name, is_active) VALUES
 -- Sample Teachers
 -- Password: teacher123 (hashed with bcrypt)
 INSERT INTO teachers (teacher_id, username, email, password_hash, full_name, phone, department, qualification, is_active) VALUES
-('TCH001', 'john.smith', 'john.smith@college.edu', '$2a$10$CwTycUXWue0Thq9StjUM0uJ8C8I8.YJZFtKjQQxZpFJBr8sE0YXCa', 'Dr. John Smith', '9876543211', 'Computer Science', 'Ph.D. in Computer Science', 1),
-('TCH002', 'sarah.johnson', 'sarah.johnson@college.edu', '$2a$10$CwTycUXWue0Thq9StjUM0uJ8C8I8.YJZFtKjQQxZpFJBr8sE0YXCa', 'Prof. Sarah Johnson', '9876543212', 'Computer Science', 'M.Tech in Software Engineering', 1);
+('TCH001', 'john.smith', 'john.smith@college.edu', '$2a$10$6FSf6JIe1XZ.1x6tdP9yTuuM0GqxmA7vnM.YkqDA6u66oWRIpPEAm', 'Dr. John Smith', '9876543211', 'Computer Science', 'Ph.D. in Computer Science', 1),
+('TCH002', 'sarah.johnson', 'sarah.johnson@college.edu', '$2a$10$6FSf6JIe1XZ.1x6tdP9yTuuM0GqxmA7vnM.YkqDA6u66oWRIpPEAm', 'Prof. Sarah Johnson', '9876543212', 'Computer Science', 'M.Tech in Software Engineering', 1);
 
 -- Sample Subjects
 INSERT INTO subjects (subject_code, subject_name, semester_id, credits, is_active) VALUES
@@ -46,7 +46,7 @@ INSERT INTO students (enrollment_number, username, email, password_hash, full_na
 -- Sample Parent
 -- Password: parent123 (hashed with bcrypt)
 INSERT INTO parents (username, email, password_hash, full_name, phone, student_id, relation, is_active) VALUES
-('parent001', 'parent1@gmail.com', '$2a$10$CwTycUXWue0Thq9StjUM0uJ8C8I8.YJZFtKjQQxZpFJBr8sE0YXCa', 'Ramesh Kumar', '9876543220', 1, 'Father', 1);
+('parent001', 'parent1@gmail.com', '$2a$10$YShDgdNBxk3bwOUis4u8sOCmfQjOnlNQnhL6ob2mxYPQvtjL1BxYq', 'Ramesh Kumar', '9876543220', 1, 'Father', 1);
 
 -- ========================
 -- LOGIN CREDENTIALS SUMMARY

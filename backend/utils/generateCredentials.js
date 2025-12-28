@@ -5,25 +5,25 @@
  */
 const generateEnrollmentNumber = async (pool) => {
   const year = new Date().getFullYear();
-  const prefix = `STU${year}`;
+  const prefix = `${year}`;
 
   try {
-    // Get the last enrollment number for this year
-    const result = await pool.query(
-      `SELECT enrollment_no FROM students 
-       WHERE enrollment_no LIKE $1 
-       ORDER BY enrollment_no DESC 
+    // Get the last enrollment number for this year (MySQL syntax)
+    const [result] = await pool.query(
+      `SELECT enrollment_number FROM students 
+       WHERE enrollment_number LIKE ? 
+       ORDER BY enrollment_number DESC 
        LIMIT 1`,
       [`${prefix}%`]
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       // First student of the year
       return `${prefix}001`;
     }
 
     // Extract the sequential number and increment
-    const lastEnrollment = result.rows[0].enrollment_no;
+    const lastEnrollment = result[0].enrollment_number;
     const lastNumber = parseInt(lastEnrollment.slice(-3));
     const newNumber = (lastNumber + 1).toString().padStart(3, '0');
 
@@ -44,19 +44,19 @@ const generateTeacherId = async (pool) => {
   const prefix = `TCH${year}`;
 
   try {
-    const result = await pool.query(
+    const [result] = await pool.query(
       `SELECT teacher_id FROM teachers 
-       WHERE teacher_id LIKE $1 
+       WHERE teacher_id LIKE ? 
        ORDER BY teacher_id DESC 
        LIMIT 1`,
       [`${prefix}%`]
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return `${prefix}001`;
     }
 
-    const lastId = result.rows[0].teacher_id;
+    const lastId = result[0].teacher_id;
     const lastNumber = parseInt(lastId.slice(-3));
     const newNumber = (lastNumber + 1).toString().padStart(3, '0');
 
@@ -77,20 +77,17 @@ const generateParentId = async (pool) => {
   const prefix = `PAR${year}`;
 
   try {
-    const result = await pool.query(
-      `SELECT parent_id FROM parents 
-       WHERE parent_id LIKE $1 
-       ORDER BY parent_id DESC 
-       LIMIT 1`,
-      [`${prefix}%`]
+    const [result] = await pool.query(
+      `SELECT id FROM parents 
+       ORDER BY id DESC 
+       LIMIT 1`
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return `${prefix}001`;
     }
 
-    const lastId = result.rows[0].parent_id;
-    const lastNumber = parseInt(lastId.slice(-3));
+    const lastNumber = result[0].id;
     const newNumber = (lastNumber + 1).toString().padStart(3, '0');
 
     return `${prefix}${newNumber}`;

@@ -17,13 +17,9 @@ const validate = (req, res, next) => {
 const validateStudent = [
   body('name').notEmpty().withMessage('Name is required').trim(),
   body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
-  body('phone').notEmpty().withMessage('Phone number is required'),
-  body('dob').isDate().withMessage('Valid date of birth is required'),
-  body('gender').isIn(['Male', 'Female', 'Other']).withMessage('Valid gender is required'),
-  body('course').notEmpty().withMessage('Course is required'),
-  body('semester').isInt({ min: 1, max: 10 }).withMessage('Valid semester is required'),
-  body('parent_name').optional().trim(),
-  body('parent_phone').optional().trim(),
+  body('dob').notEmpty().withMessage('Date of birth is required'),
+  body('semester').notEmpty().withMessage('Semester is required'),
+  body('department').notEmpty().withMessage('Department is required'),
   validate
 ];
 
@@ -31,10 +27,6 @@ const validateStudent = [
 const validateTeacher = [
   body('name').notEmpty().withMessage('Name is required').trim(),
   body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
-  body('phone').notEmpty().withMessage('Phone number is required'),
-  body('dob').isDate().withMessage('Valid date of birth is required'),
-  body('gender').isIn(['Male', 'Female', 'Other']).withMessage('Valid gender is required'),
-  body('qualification').notEmpty().withMessage('Qualification is required'),
   body('department').notEmpty().withMessage('Department is required'),
   validate
 ];
@@ -43,8 +35,7 @@ const validateTeacher = [
 const validateSubject = [
   body('subject_name').notEmpty().withMessage('Subject name is required').trim(),
   body('subject_code').notEmpty().withMessage('Subject code is required').trim(),
-  body('semester').isInt({ min: 1, max: 10 }).withMessage('Valid semester is required'),
-  body('credits').isInt({ min: 1, max: 10 }).withMessage('Valid credits are required'),
+  body('semester').notEmpty().withMessage('Semester is required'),
   validate
 ];
 

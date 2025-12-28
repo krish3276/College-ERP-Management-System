@@ -1,8 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import StudentLayout from '../../components/layouts/StudentLayout';
 import { FaBook, FaTasks, FaTrophy, FaFire, FaArrowRight, FaClock, FaCalendar } from 'react-icons/fa';
 
 const Dashboard = () => {
+  const [studentInfo, setStudentInfo] = useState({
+    name: 'Student',
+    semester: 'N/A',
+    department: 'N/A',
+    enrollment_no: 'N/A'
+  });
+
+  useEffect(() => {
+    // Get student info from localStorage (saved during login)
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setStudentInfo({
+          name: user.name || 'Student',
+          semester: user.semester || 'N/A',
+          department: user.department || 'N/A',
+          enrollment_no: user.enrollment_no || 'N/A'
+        });
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    }
+  }, []);
+
   const stats = [
     { 
       label: 'Current GPA', 
@@ -97,9 +122,22 @@ const Dashboard = () => {
         {/* Welcome Header */}
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <h1 className="text-3xl font-bold text-gray-800">Welcome back, Alex! 👋</h1>
+            <h1 className="text-3xl font-bold text-gray-800">Welcome back, {studentInfo.name}! 👋</h1>
           </div>
-          <p className="text-gray-600">Monday, Oct 24th</p>
+          <div className="flex items-center gap-4 text-gray-600">
+            <span className="flex items-center gap-2">
+              <FaBook className="text-blue-600" />
+              <strong>Semester:</strong> {studentInfo.semester}
+            </span>
+            <span className="text-gray-400">•</span>
+            <span className="flex items-center gap-2">
+              <strong>Department:</strong> {studentInfo.department}
+            </span>
+            <span className="text-gray-400">•</span>
+            <span className="flex items-center gap-2">
+              <strong>Enrollment:</strong> {studentInfo.enrollment_no}
+            </span>
+          </div>
         </div>
 
         {/* Stats Cards */}
